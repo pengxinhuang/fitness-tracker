@@ -8,10 +8,6 @@
     <meta name="theme-color" content="#4F46E5">
     <meta name="description" content="简单高效的运动记录工具，支持力量训练、有氧运动和足球运动打卡">
     
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/icon-192.png">
-    
     <title>健身打卡 - 简单高效的运动记录工具</title>
     
     <!-- Supabase SDK -->
@@ -831,9 +827,35 @@
             background: #FEE2E2;
             color: #991B1B;
         }
+
+        /* 初始化加载提示 */
+        #initLoader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        #initLoader.hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
+    <!-- 初始化加载提示 -->
+    <div id="initLoader">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>正在初始化...</p>
+        </div>
+    </div>
+
     <!-- 离线提示 -->
     <div class="offline-banner" id="offlineBanner">
         当前离线 - 数据将在恢复网络后同步
@@ -849,14 +871,14 @@
                 <a href="#teams" class="nav-link" onclick="showPage('teams')">队伍</a>
                 <div class="user-info" id="userInfo" style="display:none;">
                     <span class="user-email" id="userEmail"></span>
-                    <button class="btn btn-secondary" onclick="logout()">退出</button>
+                    <button class="btn btn-secondary btn-sm" onclick="logout()">退出</button>
                 </div>
             </div>
         </nav>
     </header>
 
     <!-- 登录页面 -->
-    <div id="authPage" class="page active">
+    <div id="authPage" class="page">
         <div class="auth-container">
             <div class="auth-card">
                 <h2 class="auth-title" id="authTitle">登录</h2>
@@ -1252,120 +1274,101 @@
     <!-- FullCalendar JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.8/index.global.min.js"></script>
     
-    <!-- 配置脚本 -->
-    <script>
-        // 环境配置 - 请在部署时通过环境变量注入
-        const CONFIG = {
-            SUPABASE_URL: window.SUPABASE_URL || 'https://dvancwliazykowvyfhaq.supabase.co',
-            SUPABASE_ANON_KEY: window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2YW5jd2xpYXp5a293dnlmaGFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NjIxNDAsImV4cCI6MjA2NzEzODE0MH0.gc2nFh02cwVD8PCU2sQ5HeA-pzH_Fl9QpNGe-uTLGOg',
-            SENTRY_DSN: window.SENTRY_DSN || null
-        };
-
-        // 验证配置
-        if (CONFIG.SUPABASE_URL === 'https://dvancwliazykowvyfhaq.supabase.co') {
-            console.error('请配置 Supabase URL 和 Key');
-        }
-    </script>
-    
     <!-- 主要应用逻辑 -->
     <script>
+        // 配置
+        const CONFIG = {
+            SUPABASE_URL: 'https://dvancwliazykowvyfhaq.supabase.co',
+            SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2YW5jd2xpYXp5a293dnlmaGFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NjIxNDAsImV4cCI6MjA2NzEzODE0MH0.gc2nFh02cwVD8PCU2sQ5HeA-pzH_Fl9QpNGe-uTLGOg'
+        };
+
         // 全局变量
         let supabaseClient = null;
         let currentUser = null;
         let calendar = null;
         let isLogin = true;
-        let offlineQueue = [];
         let userTeams = [];
 
         // 初始化 Supabase
         function initSupabase() {
             try {
-                // 使用 window 确保全局可访问
-                window.supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
+                supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
                     auth: {
                         autoRefreshToken: true,
                         persistSession: true,
                         detectSessionInUrl: true
                     }
                 });
-        
-                console.log('Supabase client initialized successfully');
-        
+                
+                console.log('Supabase 初始化成功');
+                
                 // 监听认证状态变化
                 supabaseClient.auth.onAuthStateChange((event, session) => {
-                    console.log('Auth event:', event);
-                    if (event === 'SIGNED_IN') {
+                    console.log('认证事件:', event);
+                    if (event === 'SIGNED_IN' && session) {
                         currentUser = session.user;
                         showDashboard();
                     } else if (event === 'SIGNED_OUT') {
                         currentUser = null;
                         showPage('auth');
-                    } else if (event === 'TOKEN_REFRESHED') {
-                        console.log('Token refreshed successfully');
                     }
                 });
+                
+                return true;
             } catch (error) {
                 console.error('Supabase 初始化失败:', error);
                 showMessage('error', '系统初始化失败，请刷新重试');
+                return false;
             }
         }
-
-        // 初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            // 初始化 Supabase
-            initSupabase();
-            
-            // 设置今天的日期
-            document.getElementById('workoutDate').valueAsDate = new Date();
-            document.getElementById('mobileDate').valueAsDate = new Date();
-            
-            // 检查登录状态
-            checkAuth();
-            
-            // 绑定表单事件
-            document.getElementById('authForm').addEventListener('submit', handleAuth);
-            document.getElementById('workoutForm').addEventListener('submit', handleAddWorkout);
-            document.getElementById('mobileWorkoutForm').addEventListener('submit', handleMobileAddWorkout);
-            document.getElementById('editForm').addEventListener('submit', handleEditWorkout);
-            document.getElementById('teamForm').addEventListener('submit', handleAddTeam);
-            
-            // 监听运动类型选择变化
-            document.getElementById('workoutType').addEventListener('change', handleTypeChange);
-            document.getElementById('mobileType').addEventListener('change', handleMobileTypeChange);
-            document.getElementById('editType').addEventListener('change', handleEditTypeChange);
-            
-            // 移动端优化
-            document.getElementById('quickAddPanel').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    closeQuickAdd();
-                }
-            });
-            
-            // 监听网络状态
-            window.addEventListener('online', handleOnline);
-            window.addEventListener('offline', handleOffline);
-            
-            // 注册 Service Worker (PWA)
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js').catch(err => {
-                    console.log('Service Worker 注册失败:', err);
-                });
-            }
-        });
 
         // 检查认证状态
         async function checkAuth() {
             try {
-                const { data: { user } } = await supabaseClient.auth.getUser();
-                if (user) {
-                    currentUser = user;
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session && session.user) {
+                    currentUser = session.user;
+                    console.log('用户已登录:', currentUser.email);
                     showDashboard();
                 } else {
+                    console.log('用户未登录');
                     showPage('auth');
                 }
             } catch (error) {
                 console.error('检查认证状态失败:', error);
                 showPage('auth');
+            } finally {
+                // 隐藏初始化加载器
+                document.getElementById('initLoader').classList.add('hidden');
+            }
+        }
+
+        // 显示页面
+        function showPage(pageName) {
+            // 隐藏所有页面
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // 显示目标页面
+            const targetPage = document.getElementById(pageName + 'Page');
+            if (targetPage) {
+                targetPage.classList.add('active');
+            }
+            
+            // 更新导航状态
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + pageName) {
+                    link.classList.add('active');
+                }
+            });
+            
+            // 页面特定的初始化
+            if (pageName === 'stats' && currentUser) {
+                loadStats();
+            } else if (pageName === 'teams' && currentUser) {
+                loadTeams();
             }
         }
 
@@ -1375,33 +1378,45 @@
             document.getElementById('userInfo').style.display = 'flex';
             showPage('dashboard');
             
+            // 初始化日历
             if (!calendar) {
-                initCalendar();
+                setTimeout(() => {
+                    initCalendar();
+                    loadWorkouts();
+                }, 100);
+            } else {
+                loadWorkouts();
             }
-            loadWorkouts();
+            
+            // 加载队伍
             loadTeams();
         }
 
-        // 页面切换
-        function showPage(pageName) {
-            document.querySelectorAll('.page').forEach(page => {
-                page.classList.remove('active');
-            });
+        // 显示消息
+        function showMessage(type, message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+            messageDiv.textContent = message;
             
-            document.getElementById(pageName + 'Page').classList.add('active');
-            
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.classList.remove('active');
-                if (link.getAttribute('href') === '#' + pageName) {
-                    link.classList.add('active');
+            // 找到当前活动页面并插入消息
+            const activePage = document.querySelector('.page.active');
+            if (activePage) {
+                const container = activePage.querySelector('.container') || activePage.querySelector('.auth-container');
+                if (container) {
+                    container.insertBefore(messageDiv, container.firstChild);
+                    setTimeout(() => messageDiv.remove(), 5000);
                 }
-            });
-            
-            if (pageName === 'stats') {
-                loadStats();
-            } else if (pageName === 'teams') {
-                loadTeams();
             }
+        }
+
+        // 显示认证错误
+        function showAuthError(message) {
+            const errorDiv = document.getElementById('authError');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
         }
 
         // 切换登录/注册模式
@@ -1446,8 +1461,10 @@
                     showAuthError('注册成功！请查看邮箱进行验证。');
                     document.getElementById('authForm').reset();
                     toggleAuthMode();
-                } else {
+                } else if (result.data.session) {
                     showMessage('success', isLogin ? '登录成功！' : '注册成功！');
+                    currentUser = result.data.user;
+                    showDashboard();
                 }
             } catch (error) {
                 console.error('认证错误:', error);
@@ -1488,6 +1505,38 @@
                 console.error('退出登录失败:', error);
                 showMessage('error', '退出登录失败，请重试');
             }
+        }
+
+        // 初始化日历
+        function initCalendar() {
+            const calendarEl = document.getElementById('calendar');
+            if (!calendarEl) return;
+            
+            const isMobile = window.innerWidth < 768;
+            
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: isMobile ? 'prev,next' : 'prev,next today',
+                    center: 'title',
+                    right: isMobile ? '' : 'dayGridMonth'
+                },
+                locale: 'zh-cn',
+                buttonText: {
+                    today: '今天',
+                    month: '月'
+                },
+                events: [],
+                eventClick: function(info) {
+                    openEditModal(info.event);
+                },
+                height: 'auto',
+                dayMaxEvents: isMobile ? 2 : false,
+                moreLinkText: '更多',
+                eventDisplay: 'block'
+            });
+            
+            calendar.render();
         }
 
         // 处理运动类型选择变化
@@ -1535,33 +1584,19 @@
             }
         }
 
-        // 初始化日历
-        function initCalendar() {
-            const calendarEl = document.getElementById('calendar');
-            const isMobile = window.innerWidth < 768;
+        // 更新队伍选项
+        function updateTeamOptions(prefix) {
+            const selectId = prefix + (prefix ? 'F' : 'f') + 'ootballTeam';
+            const select = document.getElementById(selectId);
+            if (!select) return;
             
-            calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
-                headerToolbar: {
-                    left: isMobile ? 'prev,next' : 'prev,next today',
-                    center: 'title',
-                    right: isMobile ? '' : 'dayGridMonth'
-                },
-                locale: 'zh-cn',
-                buttonText: {
-                    today: '今天',
-                    month: '月'
-                },
-                events: [],
-                eventClick: function(info) {
-                    openEditModal(info.event);
-                },
-                height: 'auto',
-                dayMaxEvents: isMobile ? 2 : false,
-                moreLinkText: '更多',
-                eventDisplay: 'block'
+            select.innerHTML = '<option value="">选择队伍</option>';
+            userTeams.forEach(team => {
+                const option = document.createElement('option');
+                option.value = team.id;
+                option.textContent = team.name;
+                select.appendChild(option);
             });
-            calendar.render();
         }
 
         // 获取运动类型的显示名称
@@ -1600,8 +1635,62 @@
             return colors[type] || '#6B7280';
         }
 
+        // 收集运动数据
+        async function collectWorkoutData(prefix) {
+            const type = document.getElementById(prefix + (prefix ? 'T' : 't') + 'ype').value;
+            const date = document.getElementById(prefix + (prefix ? 'D' : 'd') + 'ate').value;
+            const note = document.getElementById(prefix + (prefix ? 'N' : 'n') + 'ote').value;
+            
+            let cardioMin = 0;
+            let data = {};
+            
+            if (type === 'strength') {
+                const strengthMin = parseInt(document.getElementById(prefix + (prefix ? 'S' : 's') + 'trengthMin').value) || 0;
+                cardioMin = strengthMin;
+                data.strength_min = strengthMin;
+            } else if (type === 'cardio' || type === 'running' || type === 'cycling') {
+                cardioMin = parseInt(document.getElementById(prefix + (prefix ? 'C' : 'c') + 'ardioMin').value) || 0;
+            } else if (type === 'mixed') {
+                const strengthMin = parseInt(document.getElementById(prefix + (prefix ? 'S' : 's') + 'trengthMin').value) || 0;
+                const cardioMinValue = parseInt(document.getElementById(prefix + (prefix ? 'C' : 'c') + 'ardioMin').value) || 0;
+                cardioMin = strengthMin + cardioMinValue;
+                data.strength_min = strengthMin;
+                data.cardio_min = cardioMinValue;
+            } else if (type.startsWith('football-')) {
+                const teamId = document.getElementById(prefix + (prefix ? 'F' : 'f') + 'ootballTeam').value;
+                const goals = parseInt(document.getElementById(prefix + (prefix ? 'F' : 'f') + 'ootballGoals').value) || 0;
+                const assists = parseInt(document.getElementById(prefix + (prefix ? 'F' : 'f') + 'ootballAssists').value) || 0;
+                const minutes = parseInt(document.getElementById(prefix + (prefix ? 'F' : 'f') + 'ootballMinutes').value) || 90;
+                const result = document.getElementById(prefix + (prefix ? 'F' : 'f') + 'ootballResult').value;
+                
+                cardioMin = minutes;
+                data = {
+                    team_id: teamId,
+                    goals: goals,
+                    assists: assists,
+                    play_time: minutes,
+                    match_result: result
+                };
+            } else {
+                cardioMin = parseInt(document.getElementById(prefix + (prefix ? 'T' : 't') + 'otalMin').value) || 0;
+            }
+            
+            const hasExtraData = Object.keys(data).length > 0;
+            const finalNote = hasExtraData ? JSON.stringify(data) + (note ? '\n' + note : '') : note;
+            
+            return {
+                user_id: currentUser.id,
+                date: date,
+                type: type,
+                cardio_min: cardioMin,
+                note: finalNote
+            };
+        }
+
         // 加载运动记录
         async function loadWorkouts() {
+            if (!calendar) return;
+            
             const now = new Date();
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -1626,7 +1715,7 @@
                     // 解析存储的数据
                     if (workout.note && workout.note.startsWith('{')) {
                         try {
-                            const data = JSON.parse(workout.note);
+                            const data = JSON.parse(workout.note.split('\n')[0]);
                             if (workout.type === 'mixed') {
                                 title = `力量${data.strength_min}分钟 + 有氧${data.cardio_min}分钟`;
                                 totalMinutes = data.strength_min + data.cardio_min;
@@ -1695,7 +1784,491 @@
             if (submitButton.disabled) return;
             submitButton.disabled = true;
             
-            const workout = await collectWorkoutData('');
+            try {
+                const workout = await collectWorkoutData('workout');
+                
+                const { error } = await supabaseClient
+                    .from('workouts')
+                    .insert([workout]);
+
+                if (error) throw error;
+
+                showMessage('success', '运动记录已保存！');
+                form.reset();
+                document.getElementById('workoutDate').valueAsDate = new Date();
+                updateFormSections('', '');
+                loadWorkouts();
+                
+                if (document.querySelector('.page.active').id === 'statsPage') {
+                    loadStats();
+                }
+            } catch (error) {
+                console.error('保存失败:', error);
+                showMessage('error', '保存失败，请重试');
+            } finally {
+                submitButton.disabled = false;
+            }
+        }
+
+        // 移动端添加运动记录
+        async function handleMobileAddWorkout(e) {
+            e.preventDefault();
+            
+            const form = e.target;
+            const submitButton = form.querySelector('button[type="submit"]');
+            
+            if (submitButton.disabled) return;
+            submitButton.disabled = true;
             
             try {
-                const
+                const workout = await collectWorkoutData('mobile');
+                
+                const { error } = await supabaseClient
+                    .from('workouts')
+                    .insert([workout]);
+
+                if (error) throw error;
+
+                showMessage('success', '运动记录已保存！');
+                form.reset();
+                document.getElementById('mobileDate').valueAsDate = new Date();
+                updateFormSections('mobile', '');
+                closeQuickAdd();
+                loadWorkouts();
+            } catch (error) {
+                console.error('保存失败:', error);
+                showMessage('error', '保存失败，请重试');
+            } finally {
+                submitButton.disabled = false;
+            }
+        }
+
+        // 打开编辑模态框
+        function openEditModal(event) {
+            const workout = event.extendedProps;
+            document.getElementById('editId').value = event.id;
+            document.getElementById('editDate').value = event.startStr;
+            document.getElementById('editType').value = workout.type;
+            
+            // 解析数据
+            if (workout.note && workout.note.startsWith('{')) {
+                try {
+                    const data = JSON.parse(workout.note.split('\n')[0]);
+                    const actualNote = workout.note.split('\n').slice(1).join('\n');
+                    
+                    if (workout.type === 'mixed') {
+                        document.getElementById('editStrengthMin').value = data.strength_min || 0;
+                        document.getElementById('editCardioMin').value = data.cardio_min || 0;
+                    } else if (workout.type === 'strength') {
+                        document.getElementById('editStrengthMin').value = data.strength_min || workout.cardio_min;
+                    } else if (workout.type.startsWith('football-')) {
+                        document.getElementById('editFootballTeam').value = data.team_id || '';
+                        document.getElementById('editFootballGoals').value = data.goals || 0;
+                        document.getElementById('editFootballAssists').value = data.assists || 0;
+                        document.getElementById('editFootballMinutes').value = data.play_time || 90;
+                        document.getElementById('editFootballResult').value = data.match_result || '';
+                    }
+                    
+                    document.getElementById('editNote').value = actualNote;
+                } catch (e) {
+                    document.getElementById('editCardioMin').value = workout.cardio_min;
+                    document.getElementById('editMinutes').value = workout.cardio_min;
+                    document.getElementById('editNote').value = workout.note;
+                }
+            } else {
+                if (workout.type === 'cardio' || workout.type === 'running' || workout.type === 'cycling') {
+                    document.getElementById('editCardioMin').value = workout.cardio_min;
+                } else {
+                    document.getElementById('editMinutes').value = workout.cardio_min;
+                }
+                document.getElementById('editNote').value = workout.note || '';
+            }
+            
+            updateFormSections('edit', workout.type);
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        // 关闭编辑模态框
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+            document.getElementById('editForm').reset();
+        }
+
+        // 处理编辑运动记录
+        async function handleEditWorkout(e) {
+            e.preventDefault();
+            
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            if (submitButton.disabled) return;
+            submitButton.disabled = true;
+            
+            try {
+                const workoutId = document.getElementById('editId').value;
+                const workout = await collectWorkoutData('edit');
+                
+                const { error } = await supabaseClient
+                    .from('workouts')
+                    .update(workout)
+                    .eq('id', workoutId);
+
+                if (error) throw error;
+
+                showMessage('success', '记录已更新！');
+                closeEditModal();
+                loadWorkouts();
+            } catch (error) {
+                console.error('更新失败:', error);
+                showMessage('error', '更新失败，请重试');
+            } finally {
+                submitButton.disabled = false;
+            }
+        }
+
+        // 删除运动记录
+        async function deleteWorkout() {
+            if (!confirm('确定要删除这条记录吗？')) return;
+            
+            const workoutId = document.getElementById('editId').value;
+            
+            try {
+                const { error } = await supabaseClient
+                    .from('workouts')
+                    .delete()
+                    .eq('id', workoutId);
+
+                if (error) throw error;
+
+                showMessage('success', '记录已删除！');
+                closeEditModal();
+                loadWorkouts();
+            } catch (error) {
+                console.error('删除失败:', error);
+                showMessage('error', '删除失败，请重试');
+            }
+        }
+
+        // 加载统计数据
+        async function loadStats() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const startDate = `${year}-${month}-01`;
+            const endDate = `${year}-${month}-${new Date(year, now.getMonth() + 1, 0).getDate()}`;
+            
+            try {
+                const { data: workouts, error } = await supabaseClient
+                    .from('workouts')
+                    .select('*')
+                    .gte('date', startDate)
+                    .lte('date', endDate)
+                    .order('date', { ascending: true });
+
+                if (error) throw error;
+
+                // 基础统计
+                const totalWorkouts = workouts.length;
+                let totalMinutes = 0;
+                const typeCount = {};
+                let footballStats = {
+                    goals: 0,
+                    assists: 0,
+                    wins: 0,
+                    draws: 0,
+                    losses: 0,
+                    totalMatches: 0,
+                    totalPlayTime: 0
+                };
+                
+                workouts.forEach(workout => {
+                    totalMinutes += workout.cardio_min;
+                    typeCount[workout.type] = (typeCount[workout.type] || 0) + 1;
+                    
+                    // 解析足球数据
+                    if (workout.type.startsWith('football-') && workout.note && workout.note.startsWith('{')) {
+                        try {
+                            const data = JSON.parse(workout.note.split('\n')[0]);
+                            footballStats.goals += data.goals || 0;
+                            footballStats.assists += data.assists || 0;
+                            footballStats.totalPlayTime += data.play_time || 0;
+                            footballStats.totalMatches++;
+                            
+                            if (data.match_result === 'win') footballStats.wins++;
+                            else if (data.match_result === 'draw') footballStats.draws++;
+                            else if (data.match_result === 'lose') footballStats.losses++;
+                        } catch (e) {}
+                    }
+                });
+                
+                // 计算连续天数
+                let currentStreak = 0;
+                const today = new Date().toISOString().split('T')[0];
+                const workoutDates = [...new Set(workouts.map(w => w.date))].sort().reverse();
+                
+                for (let i = 0; i < workoutDates.length; i++) {
+                    const date = new Date(workoutDates[i]);
+                    const expectedDate = new Date(today);
+                    expectedDate.setDate(expectedDate.getDate() - i);
+                    
+                    if (date.toISOString().split('T')[0] === expectedDate.toISOString().split('T')[0]) {
+                        currentStreak++;
+                    } else {
+                        break;
+                    }
+                }
+                
+                // 更新显示
+                document.getElementById('totalWorkouts').textContent = totalWorkouts;
+                document.getElementById('totalMinutes').textContent = totalMinutes;
+                document.getElementById('avgMinutes').textContent = totalWorkouts > 0 ? Math.round(totalMinutes / totalWorkouts) : 0;
+                document.getElementById('currentStreak').textContent = currentStreak;
+                
+                // 运动类型分布
+                const typeDistribution = document.getElementById('typeDistribution');
+                typeDistribution.innerHTML = '';
+                
+                Object.entries(typeCount).forEach(([type, count]) => {
+                    const percentage = Math.round((count / totalWorkouts) * 100);
+                    const div = document.createElement('div');
+                    div.style.marginBottom = '12px';
+                    div.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span>${getWorkoutTypeName(type)}</span>
+                            <span>${count}次 (${percentage}%)</span>
+                        </div>
+                        <div style="background: var(--gray-200); height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="width: ${percentage}%; height: 100%; background: ${getWorkoutColor(type)}; transition: width 0.3s;"></div>
+                        </div>
+                    `;
+                    typeDistribution.appendChild(div);
+                });
+                
+                // 足球统计
+                if (footballStats.totalMatches > 0) {
+                    document.getElementById('footballStatsCard').style.display = 'block';
+                    document.getElementById('totalGoals').textContent = footballStats.goals;
+                    document.getElementById('totalAssists').textContent = footballStats.assists;
+                    const winRate = Math.round((footballStats.wins / footballStats.totalMatches) * 100);
+                    document.getElementById('winRate').textContent = winRate + '%';
+                    document.getElementById('avgPlayTime').textContent = Math.round(footballStats.totalPlayTime / footballStats.totalMatches) + '分钟';
+                } else {
+                    document.getElementById('footballStatsCard').style.display = 'none';
+                }
+                
+            } catch (error) {
+                console.error('加载统计失败:', error);
+                showMessage('error', '加载统计失败，请重试');
+            }
+        }
+
+        // 加载队伍
+        async function loadTeams() {
+            try {
+                const { data: teams, error } = await supabaseClient
+                    .from('teams')
+                    .select('*')
+                    .order('created_at', { ascending: true });
+
+                if (error) throw error;
+
+                userTeams = teams || [];
+                updateTeamList();
+                updateTeamOptions('');
+                updateTeamOptions('mobile');
+                updateTeamOptions('edit');
+            } catch (error) {
+                console.error('加载队伍失败:', error);
+            }
+        }
+
+        // 更新队伍列表
+        function updateTeamList() {
+            const teamList = document.getElementById('teamList');
+            if (!teamList) return;
+            
+            if (userTeams.length === 0) {
+                teamList.innerHTML = '<p style="color: var(--gray-500);">暂无队伍</p>';
+            } else {
+                teamList.innerHTML = userTeams.map(team => `
+                    <div class="team-tag">
+                        <span>${team.name}</span>
+                        <button onclick="deleteTeam('${team.id}')">&times;</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // 添加队伍
+        async function handleAddTeam(e) {
+            e.preventDefault();
+            
+            const nameInput = document.getElementById('teamName');
+            const name = nameInput.value.trim();
+            
+            if (!name) return;
+            
+            try {
+                const { error } = await supabaseClient
+                    .from('teams')
+                    .insert([{
+                        user_id: currentUser.id,
+                        name: name
+                    }]);
+
+                if (error) throw error;
+
+                showMessage('success', '队伍已添加！');
+                nameInput.value = '';
+                loadTeams();
+            } catch (error) {
+                console.error('添加队伍失败:', error);
+                showMessage('error', '添加失败，请重试');
+            }
+        }
+
+        // 删除队伍
+        async function deleteTeam(teamId) {
+            if (!confirm('确定要删除这个队伍吗？')) return;
+            
+            try {
+                const { error } = await supabaseClient
+                    .from('teams')
+                    .delete()
+                    .eq('id', teamId);
+
+                if (error) throw error;
+
+                showMessage('success', '队伍已删除！');
+                loadTeams();
+            } catch (error) {
+                console.error('删除队伍失败:', error);
+                showMessage('error', '删除失败，请重试');
+            }
+        }
+
+        // 导出数据
+        async function exportData() {
+            try {
+                const { data: workouts, error } = await supabaseClient
+                    .from('workouts')
+                    .select('*')
+                    .order('date', { ascending: false });
+
+                if (error) throw error;
+
+                // 转换为 CSV
+                const headers = ['日期', '运动类型', '时长(分钟)', '备注'];
+                const rows = workouts.map(w => {
+                    let note = w.note || '';
+                    if (note.startsWith('{')) {
+                        note = note.split('\n').slice(1).join('\n');
+                    }
+                    return [
+                        w.date,
+                        getWorkoutTypeName(w.type),
+                        w.cardio_min,
+                        note.replace(/"/g, '""')
+                    ];
+                });
+                
+                const csv = [
+                    headers.join(','),
+                    ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+                ].join('\n');
+                
+                // 下载文件
+                const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `运动记录_${new Date().toISOString().split('T')[0]}.csv`;
+                link.click();
+                
+                showMessage('success', '数据已导出！');
+            } catch (error) {
+                console.error('导出失败:', error);
+                showMessage('error', '导出失败，请重试');
+            }
+        }
+
+        // 移动端快速添加
+        function openQuickAdd() {
+            document.getElementById('quickAddPanel').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeQuickAdd() {
+            document.getElementById('quickAddPanel').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // 网络状态处理
+        function handleOnline() {
+            document.getElementById('offlineBanner').classList.remove('active');
+        }
+
+        function handleOffline() {
+            document.getElementById('offlineBanner').classList.add('active');
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('页面加载完成，开始初始化...');
+            
+            // 初始化 Supabase
+            if (!initSupabase()) {
+                document.getElementById('initLoader').classList.add('hidden');
+                return;
+            }
+            
+            // 设置今天的日期
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('workoutDate').value = today;
+            document.getElementById('mobileDate').value = today;
+            
+            // 检查登录状态
+            await checkAuth();
+            
+            // 绑定表单事件
+            document.getElementById('authForm').addEventListener('submit', handleAuth);
+            document.getElementById('workoutForm').addEventListener('submit', handleAddWorkout);
+            document.getElementById('mobileWorkoutForm').addEventListener('submit', handleMobileAddWorkout);
+            document.getElementById('editForm').addEventListener('submit', handleEditWorkout);
+            document.getElementById('teamForm').addEventListener('submit', handleAddTeam);
+            
+            // 监听运动类型选择变化
+            document.getElementById('workoutType').addEventListener('change', handleTypeChange);
+            document.getElementById('mobileType').addEventListener('change', handleMobileTypeChange);
+            document.getElementById('editType').addEventListener('change', handleEditTypeChange);
+            
+            // 移动端优化
+            document.getElementById('quickAddPanel').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeQuickAdd();
+                }
+            });
+            
+            // 监听网络状态
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
+            
+            // 模态框点击外部关闭
+            document.getElementById('editModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeEditModal();
+                }
+            });
+        });
+
+        // 全局函数暴露（供 onclick 使用）
+        window.showPage = showPage;
+        window.logout = logout;
+        window.toggleAuthMode = toggleAuthMode;
+        window.openQuickAdd = openQuickAdd;
+        window.closeQuickAdd = closeQuickAdd;
+        window.openEditModal = openEditModal;
+        window.closeEditModal = closeEditModal;
+        window.deleteWorkout = deleteWorkout;
+        window.deleteTeam = deleteTeam;
+        window.exportData = exportData;
+    </script>
+</body>
+</html>
