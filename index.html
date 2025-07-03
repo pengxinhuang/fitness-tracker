@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#4F46E5">
-    <meta name="description" content="简单高效的运动记录工具，支持力量训练和有氧运动打卡">
+    <meta name="description" content="简单高效的运动记录工具，支持力量训练、有氧运动和足球运动打卡">
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json">
@@ -20,14 +20,6 @@
     <!-- FullCalendar CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.8/index.min.css" rel="stylesheet">
     
-    <!-- 错误监控 (可选 - 需要注册 Sentry 账号) -->
-    <!--
-    <script
-      src="https://browser.sentry-cdn.com/7.0.0/bundle.min.js"
-      crossorigin="anonymous"
-    ></script>
-    -->
-    
     <!-- 自定义样式 -->
     <style>
         :root {
@@ -35,6 +27,7 @@
             --primary-dark: #4338CA;
             --success: #10B981;
             --danger: #EF4444;
+            --warning: #F59E0B;
             --gray-50: #F9FAFB;
             --gray-100: #F3F4F6;
             --gray-200: #E5E7EB;
@@ -205,6 +198,11 @@
             display: block;
         }
 
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
         @media (max-width: 639px) {
             .btn {
                 padding: 12px 20px;
@@ -263,6 +261,16 @@
         input[type="number"]::-webkit-outer-spin-button {
             -webkit-appearance: none;
             margin: 0;
+        }
+
+        /* 输入组 */
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
         }
 
         /* 卡片样式 */
@@ -627,6 +635,9 @@
         .workout-swimming { background-color: #06B6D4; }
         .workout-running { background-color: #F59E0B; }
         .workout-cycling { background-color: #EC4899; }
+        .workout-football-5 { background-color: #059669; }
+        .workout-football-7 { background-color: #047857; }
+        .workout-football-11 { background-color: #065F46; }
         .workout-other { background-color: #6B7280; }
 
         /* 移动端浮动操作按钮 */
@@ -744,6 +755,82 @@
         .offline-banner.active {
             display: block;
         }
+
+        /* 足球统计样式 */
+        .football-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .football-stats input {
+            padding: 8px 10px;
+        }
+
+        .team-manager {
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--gray-50);
+            border-radius: 6px;
+        }
+
+        .team-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .team-tag {
+            background: var(--gray-200);
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .team-tag button {
+            background: none;
+            border: none;
+            color: var(--gray-500);
+            cursor: pointer;
+            padding: 0;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .team-tag button:hover {
+            color: var(--danger);
+        }
+
+        /* 比赛结果样式 */
+        .match-result {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .match-result.win {
+            background: #D1FAE5;
+            color: #065F46;
+        }
+
+        .match-result.draw {
+            background: #FEF3C7;
+            color: #92400E;
+        }
+
+        .match-result.lose {
+            background: #FEE2E2;
+            color: #991B1B;
+        }
     </style>
 </head>
 <body>
@@ -759,6 +846,7 @@
             <div class="nav-links">
                 <a href="#dashboard" class="nav-link" onclick="showPage('dashboard')">打卡</a>
                 <a href="#stats" class="nav-link" onclick="showPage('stats')">统计</a>
+                <a href="#teams" class="nav-link" onclick="showPage('teams')">队伍</a>
                 <div class="user-info" id="userInfo" style="display:none;">
                     <span class="user-email" id="userEmail"></span>
                     <button class="btn btn-secondary" onclick="logout()">退出</button>
@@ -818,18 +906,26 @@
                             <div class="form-group">
                                 <label for="workoutType">运动类型</label>
                                 <select id="workoutType" required>
-                                    <option value="">请选择主要运动</option>
-                                    <option value="strength">力量训练</option>
-                                    <option value="cardio">有氧运动</option>
-                                    <option value="mixed">力量+有氧</option>
-                                    <option value="yoga">瑜伽</option>
-                                    <option value="swimming">游泳</option>
-                                    <option value="running">跑步</option>
-                                    <option value="cycling">骑行</option>
+                                    <option value="">请选择运动类型</option>
+                                    <optgroup label="健身运动">
+                                        <option value="strength">力量训练</option>
+                                        <option value="cardio">有氧运动</option>
+                                        <option value="mixed">力量+有氧</option>
+                                        <option value="yoga">瑜伽</option>
+                                        <option value="swimming">游泳</option>
+                                        <option value="running">跑步</option>
+                                        <option value="cycling">骑行</option>
+                                    </optgroup>
+                                    <optgroup label="足球运动">
+                                        <option value="football-5">五人制足球</option>
+                                        <option value="football-7">七人制足球</option>
+                                        <option value="football-11">十一人制足球</option>
+                                    </optgroup>
                                     <option value="other">其他</option>
                                 </select>
                             </div>
                             
+                            <!-- 健身运动输入 -->
                             <div id="strengthSection" class="form-group" style="display:none;">
                                 <label for="strengthMin">力量训练时长（分钟）</label>
                                 <input type="number" id="strengthMin" min="0" value="45">
@@ -843,6 +939,31 @@
                             <div id="totalSection" class="form-group" style="display:none;">
                                 <label for="totalMin">总运动时长（分钟）</label>
                                 <input type="number" id="totalMin" min="0" value="30" required>
+                            </div>
+                            
+                            <!-- 足球运动输入 -->
+                            <div id="footballSection" style="display:none;">
+                                <div class="form-group">
+                                    <label for="footballTeam">所属队伍</label>
+                                    <select id="footballTeam">
+                                        <option value="">选择队伍</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>比赛数据</label>
+                                    <div class="football-stats">
+                                        <input type="number" id="footballGoals" min="0" placeholder="进球数" value="0">
+                                        <input type="number" id="footballAssists" min="0" placeholder="助攻数" value="0">
+                                        <input type="number" id="footballMinutes" min="0" placeholder="出场时间(分钟)" value="90">
+                                        <select id="footballResult">
+                                            <option value="">比赛结果</option>
+                                            <option value="win">胜</option>
+                                            <option value="draw">平</option>
+                                            <option value="lose">负</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                             
                             <div class="form-group">
@@ -889,14 +1010,21 @@
                 <div class="form-group">
                     <label for="mobileType">运动类型</label>
                     <select id="mobileType" required>
-                        <option value="">请选择主要运动</option>
-                        <option value="strength">力量训练</option>
-                        <option value="cardio">有氧运动</option>
-                        <option value="mixed">力量+有氧</option>
-                        <option value="yoga">瑜伽</option>
-                        <option value="swimming">游泳</option>
-                        <option value="running">跑步</option>
-                        <option value="cycling">骑行</option>
+                        <option value="">请选择运动类型</option>
+                        <optgroup label="健身运动">
+                            <option value="strength">力量训练</option>
+                            <option value="cardio">有氧运动</option>
+                            <option value="mixed">力量+有氧</option>
+                            <option value="yoga">瑜伽</option>
+                            <option value="swimming">游泳</option>
+                            <option value="running">跑步</option>
+                            <option value="cycling">骑行</option>
+                        </optgroup>
+                        <optgroup label="足球运动">
+                            <option value="football-5">五人制足球</option>
+                            <option value="football-7">七人制足球</option>
+                            <option value="football-11">十一人制足球</option>
+                        </optgroup>
                         <option value="other">其他</option>
                     </select>
                 </div>
@@ -914,6 +1042,30 @@
                 <div id="mobileTotalSection" class="form-group" style="display:none;">
                     <label for="mobileTotalMin">总运动时长（分钟）</label>
                     <input type="number" id="mobileTotalMin" min="0" value="30" required>
+                </div>
+                
+                <div id="mobileFootballSection" style="display:none;">
+                    <div class="form-group">
+                        <label for="mobileFootballTeam">所属队伍</label>
+                        <select id="mobileFootballTeam">
+                            <option value="">选择队伍</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>比赛数据</label>
+                        <div class="football-stats">
+                            <input type="number" id="mobileFootballGoals" min="0" placeholder="进球数" value="0">
+                            <input type="number" id="mobileFootballAssists" min="0" placeholder="助攻数" value="0">
+                            <input type="number" id="mobileFootballMinutes" min="0" placeholder="出场时间(分钟)" value="90">
+                            <select id="mobileFootballResult">
+                                <option value="">比赛结果</option>
+                                <option value="win">胜</option>
+                                <option value="draw">平</option>
+                                <option value="lose">负</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -958,6 +1110,52 @@
                     </div>
                 </div>
             </div>
+            
+            <div class="card" id="footballStatsCard" style="display:none;">
+                <h3 class="card-title">⚽ 足球统计</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalGoals">0</div>
+                        <div class="stat-label">本月进球</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalAssists">0</div>
+                        <div class="stat-label">本月助攻</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="winRate">0%</div>
+                        <div class="stat-label">胜率</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avgPlayTime">0</div>
+                        <div class="stat-label">平均出场时间</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 队伍管理页面 -->
+    <div id="teamsPage" class="page">
+        <div class="container">
+            <h2 style="margin-bottom: 24px;">队伍管理</h2>
+            
+            <div class="card">
+                <h3 class="card-title">添加新队伍</h3>
+                <form id="teamForm">
+                    <div class="input-group">
+                        <input type="text" id="teamName" placeholder="输入队伍名称" maxlength="50" required>
+                        <button type="submit" class="btn btn-primary">添加</button>
+                    </div>
+                </form>
+                
+                <div class="team-manager">
+                    <h4 style="font-size: 14px; color: var(--gray-600); margin-bottom: 8px;">我的队伍</h4>
+                    <div class="team-list" id="teamList">
+                        <p style="color: var(--gray-500);">暂无队伍</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -980,13 +1178,20 @@
                 <div class="form-group">
                     <label for="editType">运动类型</label>
                     <select id="editType" required>
-                        <option value="strength">力量训练</option>
-                        <option value="cardio">有氧运动</option>
-                        <option value="mixed">力量+有氧</option>
-                        <option value="yoga">瑜伽</option>
-                        <option value="swimming">游泳</option>
-                        <option value="running">跑步</option>
-                        <option value="cycling">骑行</option>
+                        <optgroup label="健身运动">
+                            <option value="strength">力量训练</option>
+                            <option value="cardio">有氧运动</option>
+                            <option value="mixed">力量+有氧</option>
+                            <option value="yoga">瑜伽</option>
+                            <option value="swimming">游泳</option>
+                            <option value="running">跑步</option>
+                            <option value="cycling">骑行</option>
+                        </optgroup>
+                        <optgroup label="足球运动">
+                            <option value="football-5">五人制足球</option>
+                            <option value="football-7">七人制足球</option>
+                            <option value="football-11">十一人制足球</option>
+                        </optgroup>
                         <option value="other">其他</option>
                     </select>
                 </div>
@@ -1004,6 +1209,30 @@
                 <div id="editTotalSection" class="form-group" style="display:none;">
                     <label for="editMinutes">总运动时长（分钟）</label>
                     <input type="number" id="editMinutes" min="0" required>
+                </div>
+                
+                <div id="editFootballSection" style="display:none;">
+                    <div class="form-group">
+                        <label for="editFootballTeam">所属队伍</label>
+                        <select id="editFootballTeam">
+                            <option value="">选择队伍</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>比赛数据</label>
+                        <div class="football-stats">
+                            <input type="number" id="editFootballGoals" min="0" placeholder="进球数">
+                            <input type="number" id="editFootballAssists" min="0" placeholder="助攻数">
+                            <input type="number" id="editFootballMinutes" min="0" placeholder="出场时间(分钟)">
+                            <select id="editFootballResult">
+                                <option value="">比赛结果</option>
+                                <option value="win">胜</option>
+                                <option value="draw">平</option>
+                                <option value="lose">负</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -1033,7 +1262,7 @@
         };
 
         // 验证配置
-        if (CONFIG.SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+        if (CONFIG.SUPABASE_URL === 'https://dvancwliazykowvyfhaq.supabase.co') {
             console.error('请配置 Supabase URL 和 Key');
         }
     </script>
@@ -1046,24 +1275,7 @@
         let calendar = null;
         let isLogin = true;
         let offlineQueue = [];
-
-        // 初始化 Sentry（如果配置了）
-        if (CONFIG.SENTRY_DSN && typeof Sentry !== 'undefined') {
-            Sentry.init({ 
-                dsn: CONFIG.SENTRY_DSN,
-                environment: "production",
-                beforeSend(event) {
-                    // 过滤敏感信息
-                    if (event.request?.cookies) {
-                        delete event.request.cookies;
-                    }
-                    if (event.extra?.password) {
-                        delete event.extra.password;
-                    }
-                    return event;
-                }
-            });
-        }
+        let userTeams = [];
 
         // 初始化 Supabase
         function initSupabase() {
@@ -1112,6 +1324,7 @@
             document.getElementById('workoutForm').addEventListener('submit', handleAddWorkout);
             document.getElementById('mobileWorkoutForm').addEventListener('submit', handleMobileAddWorkout);
             document.getElementById('editForm').addEventListener('submit', handleEditWorkout);
+            document.getElementById('teamForm').addEventListener('submit', handleAddTeam);
             
             // 监听运动类型选择变化
             document.getElementById('workoutType').addEventListener('change', handleTypeChange);
@@ -1163,6 +1376,7 @@
                 initCalendar();
             }
             loadWorkouts();
+            loadTeams();
         }
 
         // 页面切换
@@ -1182,6 +1396,8 @@
             
             if (pageName === 'stats') {
                 loadStats();
+            } else if (pageName === 'teams') {
+                loadTeams();
             }
         }
 
@@ -1292,11 +1508,13 @@
             const strengthSection = document.getElementById(prefix + (prefix ? 'S' : 's') + 'trengthSection');
             const cardioSection = document.getElementById(prefix + (prefix ? 'C' : 'c') + 'ardioSection');
             const totalSection = document.getElementById(prefix + (prefix ? 'T' : 't') + 'otalSection');
+            const footballSection = document.getElementById(prefix + (prefix ? 'F' : 'f') + 'ootballSection');
             
             // 先隐藏所有
             strengthSection.style.display = 'none';
             cardioSection.style.display = 'none';
             totalSection.style.display = 'none';
+            footballSection.style.display = 'none';
             
             // 根据类型显示相应的输入框
             if (type === 'strength') {
@@ -1306,6 +1524,9 @@
             } else if (type === 'mixed') {
                 strengthSection.style.display = 'block';
                 cardioSection.style.display = 'block';
+            } else if (type.startsWith('football-')) {
+                footballSection.style.display = 'block';
+                updateTeamOptions(prefix);
             } else if (type) {
                 totalSection.style.display = 'block';
             }
@@ -1350,6 +1571,9 @@
                 swimming: '游泳',
                 running: '跑步',
                 cycling: '骑行',
+                'football-5': '五人制足球',
+                'football-7': '七人制足球',
+                'football-11': '十一人制足球',
                 other: '其他'
             };
             return types[type] || type;
@@ -1365,6 +1589,9 @@
                 swimming: '#06B6D4',
                 running: '#F59E0B',
                 cycling: '#EC4899',
+                'football-5': '#059669',
+                'football-7': '#047857',
+                'football-11': '#065F46',
                 other: '#6B7280'
             };
             return colors[type] || '#6B7280';
@@ -1403,6 +1630,11 @@
                             } else if (workout.type === 'strength') {
                                 totalMinutes = data.strength_min || workout.cardio_min;
                                 title = `${title} - ${totalMinutes}分钟`;
+                            } else if (workout.type.startsWith('football-')) {
+                                const result = data.match_result;
+                                const resultIcon = result === 'win' ? '🏆' : result === 'draw' ? '🤝' : result === 'lose' ? '😔' : '';
+                                title = `${title} ${resultIcon} (${data.goals || 0}球${data.assists || 0}助)`;
+                                totalMinutes = data.play_time || 90;
                             } else {
                                 totalMinutes = workout.cardio_min;
                                 title = `${title} - ${totalMinutes}分钟`;
@@ -1460,627 +1692,7 @@
             if (submitButton.disabled) return;
             submitButton.disabled = true;
             
-            const workout = collectWorkoutData('');
+            const workout = await collectWorkoutData('');
             
             try {
-                const { data, error } = await supabaseClient
-                    .from('workouts')
-                    .insert([workout])
-                    .select()
-                    .single();
-
-                if (error) throw error;
-
-                showMessage('success', '打卡成功！');
-                form.reset();
-                document.getElementById('workoutDate').valueAsDate = new Date();
-                handleTypeChange({ target: { value: '' } });
-                loadWorkouts();
-            } catch (error) {
-                console.error('保存失败:', error);
-                handleSaveError(error);
-            } finally {
-                submitButton.disabled = false;
-            }
-        }
-
-        // 处理移动端添加
-        async function handleMobileAddWorkout(e) {
-            e.preventDefault();
-            
-            const form = e.target;
-            const submitButton = form.querySelector('button[type="submit"]');
-            
-            if (submitButton.disabled) return;
-            submitButton.disabled = true;
-            
-            const workout = collectWorkoutData('mobile');
-            
-            try {
-                const { data, error } = await supabaseClient
-                    .from('workouts')
-                    .insert([workout])
-                    .select()
-                    .single();
-
-                if (error) throw error;
-
-                showMessage('success', '打卡成功！');
-                form.reset();
-                document.getElementById('mobileDate').valueAsDate = new Date();
-                closeQuickAdd();
-                loadWorkouts();
-            } catch (error) {
-                console.error('保存失败:', error);
-                handleSaveError(error);
-            } finally {
-                submitButton.disabled = false;
-            }
-        }
-
-        // 收集表单数据
-        function collectWorkoutData(prefix) {
-            const getEl = (id) => document.getElementById(prefix + (prefix ? id.charAt(0).toUpperCase() + id.slice(1) : id));
-            
-            const type = getEl(prefix ? 'type' : 'workoutType').value;
-            let workout = {
-                date: getEl(prefix ? 'date' : 'workoutDate').value,
-                type: type,
-                cardio_min: 0,
-                note: ''
-            };
-            
-            // 根据类型收集数据
-            if (type === 'strength') {
-                const strengthMin = parseInt(getEl('strengthMin').value);
-                workout.cardio_min = strengthMin;
-                workout.note = JSON.stringify({ strength_min: strengthMin });
-            } else if (type === 'cardio' || type === 'running' || type === 'cycling') {
-                workout.cardio_min = parseInt(getEl('cardioMin').value);
-            } else if (type === 'mixed') {
-                const strengthMin = parseInt(getEl('strengthMin').value);
-                const cardioMin = parseInt(getEl('cardioMin').value);
-                workout.cardio_min = strengthMin + cardioMin;
-                workout.note = JSON.stringify({ strength_min: strengthMin, cardio_min: cardioMin });
-            } else {
-                workout.cardio_min = parseInt(getEl('totalMin').value);
-            }
-            
-            // 添加用户备注
-            const userNote = getEl(prefix ? 'note' : 'workoutNote').value.trim();
-            if (userNote) {
-                if (workout.note && workout.note.startsWith('{')) {
-                    try {
-                        const data = JSON.parse(workout.note);
-                        data.user_note = userNote;
-                        workout.note = JSON.stringify(data);
-                    } catch (e) {
-                        workout.note = userNote;
-                    }
-                } else {
-                    workout.note = userNote;
-                }
-            }
-            
-            return workout;
-        }
-
-        // 处理保存错误
-        function handleSaveError(error) {
-            if (error.code === '23505') {
-                showMessage('error', '该日期已有相同类型的运动记录');
-            } else if (error.message && error.message.includes('JWT')) {
-                showMessage('error', '登录已过期，请重新登录');
-                logout();
-            } else if (!navigator.onLine) {
-                showMessage('error', '当前离线，请恢复网络后重试');
-            } else {
-                showMessage('error', '保存失败，请重试');
-            }
-        }
-
-        // 打开快速添加面板
-        function openQuickAdd() {
-            document.getElementById('quickAddPanel').classList.add('active');
-            document.body.style.overflow = 'hidden';
-        }
-
-        // 关闭快速添加面板
-        function closeQuickAdd() {
-            document.getElementById('quickAddPanel').classList.remove('active');
-            document.body.style.overflow = '';
-        }
-
-        // 打开编辑模态框
-        function openEditModal(event) {
-            const props = event.extendedProps;
-            
-            document.getElementById('editId').value = event.id;
-            document.getElementById('editDate').value = event.startStr;
-            document.getElementById('editType').value = props.type;
-            
-            handleEditTypeChange({ target: { value: props.type } });
-            
-            // 根据类型填充数据
-            if (props.note && props.note.startsWith('{')) {
-                try {
-                    const data = JSON.parse(props.note);
-                    if (props.type === 'mixed') {
-                        document.getElementById('editStrengthMin').value = data.strength_min || 0;
-                        document.getElementById('editCardioMin').value = data.cardio_min || 0;
-                    } else if (props.type === 'strength') {
-                        document.getElementById('editStrengthMin').value = data.strength_min || props.cardio_min;
-                    }
-                    document.getElementById('editNote').value = data.user_note || '';
-                } catch (e) {
-                    document.getElementById('editMinutes').value = props.cardio_min;
-                    document.getElementById('editNote').value = props.note || '';
-                }
-            } else {
-                if (props.type === 'cardio' || props.type === 'running' || props.type === 'cycling') {
-                    document.getElementById('editCardioMin').value = props.cardio_min;
-                } else {
-                    document.getElementById('editMinutes').value = props.cardio_min;
-                }
-                document.getElementById('editNote').value = props.note || '';
-            }
-            
-            document.getElementById('editModal').classList.add('active');
-            document.body.style.overflow = 'hidden';
-        }
-
-        // 关闭编辑模态框
-        function closeEditModal() {
-            document.getElementById('editModal').classList.remove('active');
-            document.body.style.overflow = '';
-        }
-
-        // 编辑运动记录
-        async function handleEditWorkout(e) {
-            e.preventDefault();
-            
-            const id = document.getElementById('editId').value;
-            const workout = collectEditData();
-            
-            try {
-                const { error } = await supabaseClient
-                    .from('workouts')
-                    .update(workout)
-                    .eq('id', id);
-
-                if (error) throw error;
-
-                showMessage('success', '更新成功！');
-                closeEditModal();
-                loadWorkouts();
-            } catch (error) {
-                console.error('更新失败:', error);
-                handleSaveError(error);
-            }
-        }
-
-        // 收集编辑表单数据
-        function collectEditData() {
-            const type = document.getElementById('editType').value;
-            let workout = {
-                date: document.getElementById('editDate').value,
-                type: type,
-                cardio_min: 0,
-                note: ''
-            };
-            
-            // 根据类型收集数据
-            if (type === 'strength') {
-                const strengthMin = parseInt(document.getElementById('editStrengthMin').value);
-                workout.cardio_min = strengthMin;
-                workout.note = JSON.stringify({ strength_min: strengthMin });
-            } else if (type === 'cardio' || type === 'running' || type === 'cycling') {
-                workout.cardio_min = parseInt(document.getElementById('editCardioMin').value);
-            } else if (type === 'mixed') {
-                const strengthMin = parseInt(document.getElementById('editStrengthMin').value);
-                const cardioMin = parseInt(document.getElementById('editCardioMin').value);
-                workout.cardio_min = strengthMin + cardioMin;
-                workout.note = JSON.stringify({ strength_min: strengthMin, cardio_min: cardioMin });
-            } else {
-                workout.cardio_min = parseInt(document.getElementById('editMinutes').value);
-            }
-            
-            // 添加用户备注
-            const userNote = document.getElementById('editNote').value.trim();
-            if (userNote) {
-                if (workout.note && workout.note.startsWith('{')) {
-                    try {
-                        const data = JSON.parse(workout.note);
-                        data.user_note = userNote;
-                        workout.note = JSON.stringify(data);
-                    } catch (e) {
-                        workout.note = userNote;
-                    }
-                } else {
-                    workout.note = userNote;
-                }
-            }
-            
-            return workout;
-        }
-
-        // 删除运动记录
-        async function deleteWorkout() {
-            if (!confirm('确定要删除这条记录吗？')) return;
-            
-            const id = document.getElementById('editId').value;
-            
-            try {
-                const { error } = await supabaseClient
-                    .from('workouts')
-                    .delete()
-                    .eq('id', id);
-
-                if (error) throw error;
-
-                showMessage('success', '删除成功！');
-                closeEditModal();
-                loadWorkouts();
-            } catch (error) {
-                console.error('删除失败:', error);
-                showMessage('error', '删除失败，请重试');
-            }
-        }
-
-        // 加载统计数据
-        async function loadStats() {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const startDate = `${year}-${month}-01`;
-            const endDate = `${year}-${month}-${new Date(year, now.getMonth() + 1, 0).getDate()}`;
-            
-            try {
-                const { data: workouts, error } = await supabaseClient
-                    .from('workouts')
-                    .select('*')
-                    .gte('date', startDate)
-                    .lte('date', endDate)
-                    .order('date', { ascending: true });
-
-                if (error) throw error;
-
-                // 计算统计数据
-                const totalWorkouts = workouts.length;
-                let totalMinutes = 0;
-                let strengthMinutes = 0;
-                let cardioMinutes = 0;
-                
-                // 计算总时长和分类时长
-                workouts.forEach(w => {
-                    totalMinutes += w.cardio_min;
-                    
-                    if (w.note && w.note.startsWith('{')) {
-                        try {
-                            const data = JSON.parse(w.note);
-                            if (w.type === 'mixed') {
-                                strengthMinutes += data.strength_min || 0;
-                                cardioMinutes += data.cardio_min || 0;
-                            } else if (w.type === 'strength') {
-                                strengthMinutes += data.strength_min || w.cardio_min;
-                            } else {
-                                cardioMinutes += w.cardio_min;
-                            }
-                        } catch (e) {
-                            if (w.type === 'cardio' || w.type === 'running' || w.type === 'cycling') {
-                                cardioMinutes += w.cardio_min;
-                            } else if (w.type === 'strength') {
-                                strengthMinutes += w.cardio_min;
-                            }
-                        }
-                    } else {
-                        if (w.type === 'cardio' || w.type === 'running' || w.type === 'cycling') {
-                            cardioMinutes += w.cardio_min;
-                        } else if (w.type === 'strength') {
-                            strengthMinutes += w.cardio_min;
-                        }
-                    }
-                });
-                
-                const avgMinutes = totalWorkouts > 0 ? Math.round(totalMinutes / totalWorkouts) : 0;
-                
-                // 计算连续天数
-                const currentStreak = calculateStreak(workouts);
-                
-                // 更新显示
-                document.getElementById('totalWorkouts').textContent = totalWorkouts;
-                document.getElementById('totalMinutes').textContent = totalMinutes;
-                document.getElementById('avgMinutes').textContent = avgMinutes;
-                document.getElementById('currentStreak').textContent = currentStreak;
-                
-                // 显示类型分布
-                displayTypeDistribution(workouts);
-            } catch (error) {
-                console.error('加载统计失败:', error);
-                document.getElementById('totalWorkouts').textContent = '-';
-                document.getElementById('totalMinutes').textContent = '-';
-                document.getElementById('avgMinutes').textContent = '-';
-                document.getElementById('currentStreak').textContent = '-';
-            }
-        }
-
-        // 计算连续打卡天数
-        function calculateStreak(workouts) {
-            if (workouts.length === 0) return 0;
-            
-            // 按日期排序
-            const sortedDates = [...new Set(workouts.map(w => w.date))].sort().reverse();
-            
-            let streak = 0;
-            const today = new Date().toISOString().split('T')[0];
-            let checkDate = today;
-            
-            for (const date of sortedDates) {
-                if (date === checkDate) {
-                    streak++;
-                    // 计算前一天
-                    const d = new Date(checkDate);
-                    d.setDate(d.getDate() - 1);
-                    checkDate = d.toISOString().split('T')[0];
-                } else if (date < checkDate) {
-                    // 中断了
-                    break;
-                }
-            }
-            
-            return streak;
-        }
-
-        // 显示运动类型分布
-        function displayTypeDistribution(workouts) {
-            const typeCounts = {};
-            
-            workouts.forEach(w => {
-                typeCounts[w.type] = (typeCounts[w.type] || 0) + 1;
-            });
-            
-            let html = '';
-            for (const [type, count] of Object.entries(typeCounts)) {
-                const percentage = Math.round(count / workouts.length * 100);
-                html += `
-                    <div style="margin-bottom: 16px;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span>${getWorkoutTypeName(type)}</span>
-                            <span>${count} 次 (${percentage}%)</span>
-                        </div>
-                        <div style="background: var(--gray-200); height: 8px; border-radius: 4px; overflow: hidden;">
-                            <div style="background: ${getWorkoutColor(type)}; width: ${percentage}%; height: 100%;"></div>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            document.getElementById('typeDistribution').innerHTML = html || '<p style="color: var(--gray-500);">暂无数据</p>';
-        }
-
-        // 导出数据
-        async function exportData() {
-            try {
-                const { data: workouts, error } = await supabaseClient
-                    .from('workouts')
-                    .select('*')
-                    .order('date', { ascending: false });
-
-                if (error) throw error;
-
-                // 转换为 CSV
-                const headers = ['日期', '类型', '力量训练(分钟)', '有氧运动(分钟)', '总时长(分钟)', '备注'];
-                const rows = workouts.map(w => {
-                    let strengthMin = 0;
-                    let cardioMin = 0;
-                    let userNote = '';
-                    
-                    if (w.note && w.note.startsWith('{')) {
-                        try {
-                            const data = JSON.parse(w.note);
-                            strengthMin = data.strength_min || 0;
-                            cardioMin = data.cardio_min || 0;
-                            userNote = data.user_note || '';
-                        } catch (e) {
-                            userNote = w.note || '';
-                        }
-                    } else {
-                        if (w.type === 'strength') {
-                            strengthMin = w.cardio_min;
-                        } else if (w.type === 'cardio' || w.type === 'running' || w.type === 'cycling') {
-                            cardioMin = w.cardio_min;
-                        }
-                        userNote = w.note || '';
-                    }
-                    
-                    return [
-                        w.date,
-                        getWorkoutTypeName(w.type),
-                        strengthMin,
-                        cardioMin,
-                        w.cardio_min,
-                        userNote
-                    ];
-                });
-                
-                const csv = [headers, ...rows]
-                    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-                    .join('\n');
-                
-                // 添加 BOM 以支持中文
-                const bom = '\uFEFF';
-                const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `健身记录_${new Date().toISOString().split('T')[0]}.csv`;
-                link.click();
-                
-                showMessage('success', '导出成功！');
-            } catch (error) {
-                console.error('导出失败:', error);
-                showMessage('error', '导出失败，请重试');
-            }
-        }
-
-        // 显示错误消息
-        function showAuthError(message) {
-            const errorEl = document.getElementById('authError');
-            errorEl.textContent = message;
-            errorEl.style.display = 'block';
-            
-            setTimeout(() => {
-                errorEl.style.display = 'none';
-            }, 5000);
-        }
-
-        // 显示通用消息
-        function showMessage(type, message) {
-            const messageEl = document.createElement('div');
-            messageEl.className = type === 'success' ? 'success-message' : 'error-message';
-            messageEl.textContent = message;
-            messageEl.style.position = 'fixed';
-            messageEl.style.top = '80px';
-            messageEl.style.right = '20px';
-            messageEl.style.left = window.innerWidth < 640 ? '20px' : 'auto';
-            messageEl.style.zIndex = '1001';
-            messageEl.style.maxWidth = window.innerWidth < 640 ? 'none' : '300px';
-            
-            document.body.appendChild(messageEl);
-            
-            setTimeout(() => {
-                messageEl.remove();
-            }, 3000);
-        }
-
-        // 处理离线状态
-        function handleOffline() {
-            document.getElementById('offlineBanner').classList.add('active');
-        }
-
-        // 处理在线状态
-        function handleOnline() {
-            document.getElementById('offlineBanner').classList.remove('active');
-            // 如果有离线队列，尝试同步
-            if (offlineQueue.length > 0) {
-                syncOfflineData();
-            }
-        }
-
-        // 同步离线数据
-        async function syncOfflineData() {
-            for (const item of offlineQueue) {
-                try {
-                    await supabaseClient.from('workouts').insert([item]);
-                } catch (error) {
-                    console.error('同步失败:', error);
-                }
-            }
-            offlineQueue = [];
-            showMessage('success', '离线数据已同步');
-            loadWorkouts();
-        }
-
-        // PWA 安装提示
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-        });
-    </script>
-
-    <!-- Service Worker -->
-    <script>
-        // 创建一个简单的 Service Worker 内容
-        const swContent = `
-const CACHE_NAME = 'fitness-tracker-v1';
-const urlsToCache = [
-  '/',
-  '/index.html',
-  'https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.8/index.min.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.8/index.global.min.js',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
-];
-
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
-  );
-});
-
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // 如果找到缓存，返回缓存
-        if (response) {
-          return response;
-        }
-        // 否则从网络获取
-        return fetch(event.request);
-      })
-      .catch(() => {
-        // 离线时返回离线页面
-        if (event.request.destination === 'document') {
-          return caches.match('/index.html');
-        }
-      })
-  );
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
-  );
-});
-`;
-    </script>
-
-    <!-- Manifest 内容 -->
-    <script>
-        // 创建 manifest.json 内容
-        const manifestContent = {
-            "name": "健身打卡工具",
-            "short_name": "健身打卡",
-            "description": "简单高效的运动记录工具",
-            "start_url": "/",
-            "display": "standalone",
-            "background_color": "#4F46E5",
-            "theme_color": "#4F46E5",
-            "orientation": "portrait",
-            "icons": [
-                {
-                    "src": "data:image/png;base64,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",
-                    "sizes": "192x192",
-                    "type": "image/png"
-                },
-                {
-                    "src": "data:image/png;base64,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",
-                    "sizes": "512x512",
-                    "type": "image/png"
-                }
-            ]
-        };
-
-        // 如果支持，创建 manifest blob URL
-        if (typeof Blob !== 'undefined' && typeof URL !== 'undefined') {
-            const manifestBlob = new Blob([JSON.stringify(manifestContent)], { type: 'application/json' });
-            const manifestUrl = URL.createObjectURL(manifestBlob);
-            
-            // 添加 manifest link
-            const manifestLink = document.createElement('link');
-            manifestLink.rel = 'manifest';
-            manifestLink.href = manifestUrl;
-            document.head.appendChild(manifestLink);
-        }
-    </script>
-</body>
-</html>
+                const
