@@ -1280,14 +1280,17 @@
         // 初始化 Supabase
         function initSupabase() {
             try {
-                supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
+                // 使用 window 确保全局可访问
+                window.supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
                     auth: {
                         autoRefreshToken: true,
                         persistSession: true,
                         detectSessionInUrl: true
                     }
                 });
-
+        
+                console.log('Supabase client initialized successfully');
+        
                 // 监听认证状态变化
                 supabaseClient.auth.onAuthStateChange((event, session) => {
                     console.log('Auth event:', event);
